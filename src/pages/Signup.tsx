@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,7 +13,6 @@ export default function Signup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [organization, setOrganization] = useState("");
   const [loading, setLoading] = useState(false);
   const { signup } = useAuth();
   const navigate = useNavigate();
@@ -21,7 +21,7 @@ export default function Signup() {
     e.preventDefault();
     setLoading(true);
     try {
-      await signup(name, email, password, organization);
+      await signup(name, email, password);
       navigate("/dashboard");
     } finally {
       setLoading(false);
@@ -72,10 +72,6 @@ export default function Signup() {
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input id="name" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="org">Organization</Label>
-                  <Input id="org" placeholder="Your Organization" value={organization} onChange={(e) => setOrganization(e.target.value)} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>

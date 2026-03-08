@@ -7,10 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Building2, FileText, BarChart3, Eye } from "lucide-react";
 import { motion } from "framer-motion";
 
+import { useEffect } from "react";
+
 export default function Dashboard() {
   const { user } = useAuth();
-  const { institutions } = useInstitutionStore();
+  const { institutions, fetchInstitutions } = useInstitutionStore();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchInstitutions();
+  }, [fetchInstitutions]);
 
   const completed = institutions.filter((i) => i.status === "completed").length;
   const processing = institutions.filter((i) => i.status === "processing").length;

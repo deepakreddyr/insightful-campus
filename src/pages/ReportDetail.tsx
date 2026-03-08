@@ -3,19 +3,39 @@ import { useInstitutionStore } from "@/store/institutionStore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, Building2, FileCheck, GraduationCap, Lightbulb, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Download, Building2, FileCheck, GraduationCap, Lightbulb, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line } from "recharts";
 import { motion } from "framer-motion";
+
+import { useEffect, useState } from "react";
 
 export default function ReportDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const inst = useInstitutionStore((s) => s.getInstitution(id || ""));
+  const { getInstitution, fetchInstitution } = useInstitutionStore();
+  const [loading, setLoading] = useState(false);
+
+  const inst = getInstitution(id || "");
+
+  useEffect(() => {
+    if (id) {
+      setLoading(true);
+      fetchInstitution(id).finally(() => setLoading(false));
+    }
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center justify-center gap-3 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" /> Loading report...
+      </div>
+    );
+  }
 
   if (!inst) {
     return (
       <div className="p-8 text-center">
-        <p className="text-muted-foreground">Report not found.</p>
+        <p className="text-muted-foreground">Report not found or loading...</p>
         <Button variant="outline" className="mt-4" onClick={() => navigate("/dashboard")}>Back to Dashboard</Button>
       </div>
     );
@@ -43,7 +63,7 @@ export default function ReportDetail() {
       </div>
 
       {/* Overall Score */}
-      {inst.overallScore && (
+      {(inst.overallScore || inst.campusScore || inst.complianceScore) && (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="gradient-hero text-primary-foreground">
             <CardContent className="p-8">
@@ -84,7 +104,7 @@ export default function ReportDetail() {
                   <AlertTriangle className="h-3.5 w-3.5 text-warning" /> Maintenance Issues
                 </h4>
                 <ul className="space-y-1.5">
-                  {cam.maintenance_issues.map((m, i) => (
+                  {(cam.maintenance_issues ?? []).map((m, i) => (
                     <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
                       <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-warning shrink-0" />
                       {m}
@@ -97,7 +117,7 @@ export default function ReportDetail() {
                   <AlertTriangle className="h-3.5 w-3.5 text-destructive" /> Safety Hazards
                 </h4>
                 <ul className="space-y-1.5">
-                  {cam.safety_hazards.map((h, i) => (
+                  {(cam.safety_hazards ?? []).map((h, i) => (
                     <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
                       <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
                       {h}
@@ -111,7 +131,7 @@ export default function ReportDetail() {
                 <CheckCircle2 className="h-3.5 w-3.5 text-success" /> Compliance
               </h4>
               <div className="flex flex-wrap gap-2">
-                {cam.compliance_flags.map((f, i) => (
+                {(cam.compliance_flags ?? []).map((f, i) => (
                   <Badge key={i} variant="outline" className="status-badge-completed">{f}</Badge>
                 ))}
               </div>
@@ -136,7 +156,7 @@ export default function ReportDetail() {
               <div>
                 <h4 className="text-sm font-medium mb-2">Detected Issues</h4>
                 <ul className="space-y-1.5">
-                  {doc.detected_issues.map((d, i) => (
+                  {(doc.detected_issues ?? []).map((d, i) => (
                     <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
                       <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-warning shrink-0" />{d}
                     </li>
@@ -146,7 +166,7 @@ export default function ReportDetail() {
               <div>
                 <h4 className="text-sm font-medium mb-2">Missing Documents</h4>
                 <ul className="space-y-1.5">
-                  {doc.missing_documents.map((d, i) => (
+                  {(doc.missing_documents ?? []).map((d, i) => (
                     <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
                       <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />{d}
                     </li>
@@ -196,7 +216,7 @@ export default function ReportDetail() {
                 <div>
                   <h4 className="text-sm font-medium mb-2">Top Performing Courses</h4>
                   <div className="flex flex-wrap gap-2">
-                    {perf.top_performing_courses.map((c) => (
+                    {(perf.top_performing_courses ?? []).map((c) => (
                       <Badge key={c} variant="outline" className="status-badge-completed">{c}</Badge>
                     ))}
                   </div>
@@ -204,7 +224,7 @@ export default function ReportDetail() {
                 <div>
                   <h4 className="text-sm font-medium mb-2">Courses Needing Improvement</h4>
                   <div className="flex flex-wrap gap-2">
-                    {perf.low_performing_courses.map((c) => (
+                    {(perf.low_performing_courses ?? []).map((c) => (
                       <Badge key={c} variant="outline" className="status-badge-processing">{c}</Badge>
                     ))}
                   </div>
@@ -221,7 +241,7 @@ export default function ReportDetail() {
             </CardHeader>
             <CardContent>
               <ul className="space-y-3">
-                {perf.improvement_recommendations.map((r, i) => (
+                {(perf.improvement_recommendations ?? []).map((r, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm">
                     <span className="mt-0.5 h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-medium shrink-0">{i + 1}</span>
                     {r}

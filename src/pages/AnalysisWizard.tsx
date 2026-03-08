@@ -31,73 +31,109 @@ export default function AnalysisWizard() {
   const { addInstitution } = useInstitutionStore();
   const navigate = useNavigate();
 
-  const simulateAnalysis = async (stepIdx: number) => {
+  const runAnalysis = async (stepIdx: number) => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 2000));
-    setLoading(false);
+    const token = localStorage.getItem("inspectai_token");
+    const authHeader = token ? { "Authorization": `Bearer ${token}` } : {};
 
-    if (stepIdx === 0) {
-      const id = crypto.randomUUID();
-      const newReport: InstitutionReport = {
-        id,
-        name: institutionName,
-        location,
-        dateAnalyzed: new Date().toISOString().split("T")[0],
-        status: "processing",
-        campusScore: 78,
-        campusAnalysis: {
-          infrastructure_quality_score: 78,
-          maintenance_issues: ["Minor cracks in Building A corridor", "Outdated furniture in Library"],
-          safety_hazards: ["Missing fire extinguisher in Lab 2"],
-          compliance_flags: ["Emergency exits well-marked", "CCTV coverage adequate"],
-        },
-      };
-      setReport(newReport);
-    } else if (stepIdx === 1 && report) {
-      setReport({
-        ...report,
-        complianceScore: 85,
-        documentAnalysis: {
-          authenticity_score: 85,
-          detected_issues: ["Faculty certificate #12 has blurred seal"],
-          missing_documents: ["Updated affiliation letter"],
-          accreditation_validation: "NAAC Grade B+ (Valid until 2028)",
-        },
-      });
-    } else if (stepIdx === 2 && report) {
-      const finalReport: InstitutionReport = {
-        ...report,
-        status: "completed",
-        academicScore: 76,
-        overallScore: Math.round(((report.campusScore || 0) + (report.complianceScore || 0) + 76) / 3),
-        performanceAnalysis: {
-          top_performing_courses: ["Data Science", "Biotechnology"],
-          low_performing_courses: ["Mechanical Engineering"],
-          subject_performance: [
-            { subject: "Mathematics", score: 72 },
-            { subject: "Physics", score: 80 },
-            { subject: "Chemistry", score: 65 },
-            { subject: "CS", score: 88 },
-            { subject: "English", score: 74 },
-            { subject: "Biology", score: 82 },
-          ],
-          improvement_recommendations: [
-            "Introduce peer tutoring for Chemistry",
-            "Update Mechanical Engineering lab equipment",
-            "Add industry guest lectures for practical exposure",
-          ],
-          class_wise_analysis: [
-            { class: "1st Year", average: 70 },
-            { class: "2nd Year", average: 74 },
-            { class: "3rd Year", average: 78 },
-            { class: "4th Year", average: 82 },
-          ],
-        },
-      };
-      setReport(finalReport);
-      addInstitution(finalReport);
+    try {
+      if (stepIdx === 0) {
+        // 1. Create new analysis record
+        const createRes = await fetch(`/api/analysis/new`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeader
+          },
+          body: JSON.stringify({ name: institutionName, location, type: 'full' }),
+        });
+
+        if (!createRes.ok) throw new Error("Failed to create analysis");
+        const newReport = await createRes.json();
+
+        // 2. Upload images for AI analysis
+        const formData = new FormData();
+        campusImages.forEach(file => formData.append('files', file));
+
+        const analysisRes = await fetch(`/api/analysis/${newReport.id}/campus`, {
+          method: 'POST',
+          headers: authHeader,
+          body: formData,
+        });
+
+        if (!analysisRes.ok) throw new Error("Failed to analyze campus");
+        const campusAIResult = await analysisRes.json();
+
+        setReport({
+          ...newReport,
+          campusScore: campusAIResult.infrastructure_score,
+          campusAnalysis: campusAIResult
+        });
+      } else if (stepIdx === 1 && report) {
+        // Upload documents for AI verification
+        const formData = new FormData();
+        documents.forEach(file => formData.append('files', file));
+
+        const response = await fetch(`/api/analysis/${report.id}/documents`, {
+          method: 'POST',
+          headers: authHeader,
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error("Failed to verify documents");
+        const docAIResult = await response.json();
+
+        setReport({
+          ...report,
+          complianceScore: docAIResult.authenticity_score,
+          documentAnalysis: docAIResult
+        });
+      } else if (stepIdx === 2 && report) {
+        // Finalize student performance analysis
+        // For now, we'll mock the JSON parsing of the excel file or just send a dummy data 
+        // until we add a real excel-to-json library on the frontend.
+        const performanceData = {
+          student_count: 500,
+          average_marks: 75,
+          top_courses: ["Computer Science", "Physics"],
+          marks_distribution: "Class A: 80, Class B: 70"
+        };
+
+        const response = await fetch(`/api/analysis/${report.id}/performance`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeader
+          },
+          body: JSON.stringify(performanceData),
+        });
+
+        if (!response.ok) throw new Error("Failed to analyze performance");
+        const perfAIResult = await response.json();
+
+        const updatedReport = {
+          ...report,
+          academicScore: perfAIResult.academicScore,
+          performanceAnalysis: {
+            top_performing_courses: perfAIResult.top_courses,
+            low_performing_courses: perfAIResult.low_courses,
+            subject_performance: perfAIResult.subject_performance,
+            improvement_recommendations: perfAIResult.recommendations,
+            class_wise_analysis: perfAIResult.class_wise_analysis
+          },
+          status: "completed" as "completed" | "processing",
+          overallScore: Math.round(((report.campusScore || 0) + (report.complianceScore || 0) + (perfAIResult.academicScore || 0)) / 3)
+        };
+
+        setReport(updatedReport);
+        addInstitution(updatedReport);
+      }
+      setStep(stepIdx + 1);
+    } catch (err) {
+      console.error("Analysis error:", err);
+    } finally {
+      setLoading(false);
     }
-    setStep(stepIdx + 1);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (f: File[]) => void) => {
@@ -165,7 +201,7 @@ export default function AnalysisWizard() {
                 </div>
 
                 <Button
-                  onClick={() => simulateAnalysis(0)}
+                  onClick={() => runAnalysis(0)}
                   disabled={!institutionName || !location || loading}
                   className="gap-2"
                 >
@@ -213,7 +249,7 @@ export default function AnalysisWizard() {
                   <Button variant="outline" onClick={() => setStep(0)}>
                     <ArrowLeft className="h-4 w-4 mr-1" /> Back
                   </Button>
-                  <Button onClick={() => simulateAnalysis(1)} disabled={loading} className="gap-2">
+                  <Button onClick={() => runAnalysis(1)} disabled={loading} className="gap-2">
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                     {loading ? "Verifying..." : "Verify Documents"}
                   </Button>
@@ -257,7 +293,7 @@ export default function AnalysisWizard() {
                   <Button variant="outline" onClick={() => setStep(1)}>
                     <ArrowLeft className="h-4 w-4 mr-1" /> Back
                   </Button>
-                  <Button onClick={() => simulateAnalysis(2)} disabled={loading} className="gap-2">
+                  <Button onClick={() => runAnalysis(2)} disabled={loading} className="gap-2">
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
                     {loading ? "Analyzing..." : "Analyze Student Performance"}
                   </Button>

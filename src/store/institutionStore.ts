@@ -5,14 +5,16 @@ export interface InstitutionReport {
   id: string;
   name: string;
   location: string;
-  dateAnalyzed: string;
+  dateAnalyzed?: string;
+  date_analyzed?: string;
   status: "completed" | "processing";
   campusScore?: number;
   complianceScore?: number;
   academicScore?: number;
   overallScore?: number;
   campusAnalysis?: {
-    infrastructure_quality_score: number;
+    infrastructure_quality_score?: number;
+    infrastructure_score?: number;
     maintenance_issues: string[];
     safety_hazards: string[];
     compliance_flags: string[];
@@ -34,66 +36,73 @@ export interface InstitutionReport {
 
 interface InstitutionStore {
   institutions: InstitutionReport[];
+  fetchInstitutions: () => Promise<void>;
+  fetchInstitution: (id: string) => Promise<InstitutionReport | null>;
   addInstitution: (inst: InstitutionReport) => void;
   updateInstitution: (id: string, data: Partial<InstitutionReport>) => void;
   getInstitution: (id: string) => InstitutionReport | undefined;
 }
 
+const API_URL = "/api";
+
+function mapReport(raw: any): InstitutionReport {
+  return {
+    ...raw,
+    // Normalize date keys
+    dateAnalyzed: raw.dateAnalyzed || raw.date_analyzed,
+    // Normalize nested campus scores
+    campusAnalysis: raw.campusAnalysis
+      ? {
+        ...raw.campusAnalysis,
+        infrastructure_quality_score:
+          raw.campusAnalysis.infrastructure_quality_score ??
+          raw.campusAnalysis.infrastructure_score,
+      }
+      : undefined,
+  };
+}
+
 export const useInstitutionStore = create<InstitutionStore>()(
   persist(
     (set, get) => ({
-      institutions: [
-        {
-          id: "demo-1",
-          name: "Delhi Technical University",
-          location: "New Delhi, India",
-          dateAnalyzed: "2026-02-15",
-          status: "completed",
-          overallScore: 82,
-          campusScore: 78,
-          complianceScore: 88,
-          academicScore: 80,
-          campusAnalysis: {
-            infrastructure_quality_score: 78,
-            maintenance_issues: ["Minor paint peeling in Block C", "Water cooler needs servicing"],
-            safety_hazards: ["Fire extinguisher expired in Lab 3"],
-            compliance_flags: ["All safety exits properly marked"],
-          },
-          documentAnalysis: {
-            authenticity_score: 92,
-            detected_issues: ["Certificate #45 has unclear stamp"],
-            missing_documents: ["Updated NAAC report"],
-            accreditation_validation: "Valid until 2027",
-          },
-          performanceAnalysis: {
-            top_performing_courses: ["Computer Science", "Electronics"],
-            low_performing_courses: ["Civil Engineering"],
-            subject_performance: [
-              { subject: "Mathematics", score: 75 },
-              { subject: "Physics", score: 82 },
-              { subject: "Chemistry", score: 68 },
-              { subject: "Computer Science", score: 90 },
-              { subject: "English", score: 72 },
-            ],
-            improvement_recommendations: ["Increase lab hours for Civil Engineering", "Add remedial classes for Chemistry"],
-            class_wise_analysis: [
-              { class: "1st Year", average: 72 },
-              { class: "2nd Year", average: 76 },
-              { class: "3rd Year", average: 80 },
-              { class: "4th Year", average: 84 },
-            ],
-          },
-        },
-        {
-          id: "demo-2",
-          name: "Mumbai Institute of Management",
-          location: "Mumbai, India",
-          dateAnalyzed: "2026-03-01",
-          status: "processing",
-          overallScore: undefined,
-          campusScore: 85,
-        },
-      ],
+      institutions: [],
+      fetchInstitutions: async () => {
+        try {
+          const token = localStorage.getItem("inspectai_token");
+          const response = await fetch(`${API_URL}/institutions`, {
+            headers: token ? { "Authorization": `Bearer ${token}` } : {},
+          });
+          if (!response.ok) throw new Error("Failed to fetch institutions");
+          const data = await response.json();
+          set({ institutions: data.map(mapReport) });
+        } catch (err) {
+          console.error("Fetch institutions error:", err);
+        }
+      },
+      fetchInstitution: async (id: string) => {
+        try {
+          const token = localStorage.getItem("inspectai_token");
+          const response = await fetch(`${API_URL}/institutions/${id}`, {
+            headers: token ? { "Authorization": `Bearer ${token}` } : {},
+          });
+          if (!response.ok) throw new Error("Failed to fetch institution");
+          const raw = await response.json();
+          const mapped = mapReport(raw);
+          // Upsert into store
+          set((s) => {
+            const exists = s.institutions.find((i) => i.id === id);
+            return {
+              institutions: exists
+                ? s.institutions.map((i) => (i.id === id ? mapped : i))
+                : [mapped, ...s.institutions],
+            };
+          });
+          return mapped;
+        } catch (err) {
+          console.error("Fetch institution error:", err);
+          return null;
+        }
+      },
       addInstitution: (inst) => set((s) => ({ institutions: [inst, ...s.institutions] })),
       updateInstitution: (id, data) =>
         set((s) => ({

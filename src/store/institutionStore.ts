@@ -43,7 +43,7 @@ interface InstitutionStore {
   getInstitution: (id: string) => InstitutionReport | undefined;
 }
 
-const API_URL = "/api";
+const API_URL = import.meta.env.VITE_API_URL;
 
 function mapReport(raw: any): InstitutionReport {
   return {

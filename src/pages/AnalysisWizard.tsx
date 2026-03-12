@@ -39,7 +39,7 @@ export default function AnalysisWizard() {
     try {
       if (stepIdx === 0) {
         // 1. Create new analysis record
-        const createRes = await fetch(`/api/analysis/new`, {
+        const createRes = await fetch(`${import.meta.env.VITE_API_URL}/analysis/new`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -55,7 +55,7 @@ export default function AnalysisWizard() {
         const formData = new FormData();
         campusImages.forEach(file => formData.append('files', file));
 
-        const analysisRes = await fetch(`/api/analysis/${newReport.id}/campus`, {
+        const analysisRes = await fetch(`${import.meta.env.VITE_API_URL}/analysis/${newReport.id}/campus`, {
           method: 'POST',
           headers: authHeader,
           body: formData,
@@ -74,7 +74,7 @@ export default function AnalysisWizard() {
         const formData = new FormData();
         documents.forEach(file => formData.append('files', file));
 
-        const response = await fetch(`/api/analysis/${report.id}/documents`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/analysis/${report.id}/documents`, {
           method: 'POST',
           headers: authHeader,
           body: formData,
@@ -99,7 +99,7 @@ export default function AnalysisWizard() {
           marks_distribution: "Class A: 80, Class B: 70"
         };
 
-        const response = await fetch(`/api/analysis/${report.id}/performance`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/analysis/${report.id}/performance`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

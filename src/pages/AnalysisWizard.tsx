@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Camera, FileText, BarChart3, CheckCircle2, Upload, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
+import { Camera, FileText, BarChart3, CheckCircle2, Upload, ArrowRight, ArrowLeft, Loader2, X, FileIcon, ImageIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from "recharts";
+import * as XLSX from "xlsx";
 
 const steps = [
   { label: "Campus Inspection", icon: Camera },
@@ -25,7 +26,7 @@ export default function AnalysisWizard() {
   const [location, setLocation] = useState("");
   const [campusImages, setCampusImages] = useState<File[]>([]);
   const [documents, setDocuments] = useState<File[]>([]);
-  const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [performanceFiles, setPerformanceFiles] = useState<File[]>([]);
   const [report, setReport] = useState<InstitutionReport | null>(null);
 
   const { addInstitution } = useInstitutionStore();
@@ -89,14 +90,19 @@ export default function AnalysisWizard() {
           documentAnalysis: docAIResult
         });
       } else if (stepIdx === 2 && report) {
-        // Finalize student performance analysis
-        // For now, we'll mock the JSON parsing of the excel file or just send a dummy data 
-        // until we add a real excel-to-json library on the frontend.
-        const performanceData = {
-          student_count: 500,
-          average_marks: 75,
-          top_courses: ["Computer Science", "Physics"],
-          marks_distribution: "Class A: 80, Class B: 70"
+        // Finalize student performance analysis by parsing all selected excel/csv files
+        const combinedData: any[] = [];
+        
+        for (const file of performanceFiles) {
+          const buffer = await file.arrayBuffer();
+          const workbook = XLSX.read(buffer);
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+          combinedData.push(...jsonData);
+        }
+
+        const performancePayload = {
+          raw_data: combinedData.slice(0, 500) // limit sample for prompt
         };
 
         const response = await fetch(`${import.meta.env.VITE_API_URL}/analysis/${report.id}/performance`, {
@@ -105,7 +111,7 @@ export default function AnalysisWizard() {
             'Content-Type': 'application/json',
             ...authHeader
           },
-          body: JSON.stringify(performanceData),
+          body: JSON.stringify(performancePayload),
         });
 
         if (!response.ok) throw new Error("Failed to analyze performance");
@@ -118,6 +124,7 @@ export default function AnalysisWizard() {
             top_performing_courses: perfAIResult.top_courses,
             low_performing_courses: perfAIResult.low_courses,
             subject_performance: perfAIResult.subject_performance,
+            department_performance: perfAIResult.department_performance,
             improvement_recommendations: perfAIResult.recommendations,
             class_wise_analysis: perfAIResult.class_wise_analysis
           },
@@ -188,15 +195,28 @@ export default function AnalysisWizard() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Campus Images</Label>
                   <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
                     <Upload className="h-8 w-8 text-muted-foreground mb-2" />
                     <span className="text-sm text-muted-foreground">Drag & drop or click to upload</span>
                     <span className="text-xs text-muted-foreground mt-1">Supports JPG, PNG (multiple files)</span>
-                    <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFileChange(e, setCampusImages)} />
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => {
+                      if (e.target.files) setCampusImages(prev => [...prev, ...Array.from(e.target.files!)]);
+                    }} />
                   </label>
                   {campusImages.length > 0 && (
-                    <p className="text-sm text-muted-foreground">{campusImages.length} file(s) selected</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+                      {campusImages.map((file, i) => (
+                        <div key={i} className="relative group rounded-lg overflow-hidden border bg-muted">
+                          <img src={URL.createObjectURL(file)} className="h-24 w-full object-cover" alt="Preview" />
+                          <button 
+                            onClick={() => setCampusImages(prev => prev.filter((_, idx) => idx !== i))}
+                            className="absolute top-1 right-1 bg-destructive text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
 
@@ -228,20 +248,33 @@ export default function AnalysisWizard() {
                         <CheckCircle2 className="h-4 w-4 text-success" />
                         <span className="text-sm font-medium">Campus Analysis Complete</span>
                       </div>
-                      <p className="text-sm text-muted-foreground">Infrastructure Score: <span className="font-semibold text-foreground">{report.campusAnalysis.infrastructure_quality_score}/100</span></p>
+                      <p className="text-sm text-muted-foreground">Infrastructure Score: <span className="font-semibold text-foreground">{report.campusAnalysis.infrastructure_score ?? report.campusAnalysis.infrastructure_quality_score}/100</span></p>
                     </CardContent>
                   </Card>
                 )}
 
                 <div className="space-y-2">
-                  <Label>Documents</Label>
                   <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
                     <Upload className="h-8 w-8 text-muted-foreground mb-2" />
                     <span className="text-sm text-muted-foreground">Upload PDF, images, or documents</span>
-                    <input type="file" accept=".pdf,image/*,.doc,.docx" multiple className="hidden" onChange={(e) => handleFileChange(e, setDocuments)} />
+                    <input type="file" accept=".pdf,image/*,.doc,.docx" multiple className="hidden" onChange={(e) => {
+                      if (e.target.files) setDocuments(prev => [...prev, ...Array.from(e.target.files!)]);
+                    }} />
                   </label>
                   {documents.length > 0 && (
-                    <p className="text-sm text-muted-foreground">{documents.length} file(s) selected</p>
+                    <div className="space-y-2 mt-4">
+                      {documents.map((file, i) => (
+                        <div key={i} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg border">
+                          <div className="flex items-center gap-2 truncate">
+                            {file.type.startsWith('image/') ? <ImageIcon className="h-4 w-4 text-primary" /> : <FileIcon className="h-4 w-4 text-primary" />}
+                            <span className="text-sm truncate">{file.name}</span>
+                          </div>
+                          <button onClick={() => setDocuments(prev => prev.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-destructive">
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
 
@@ -280,13 +313,28 @@ export default function AnalysisWizard() {
                 )}
 
                 <div className="space-y-2">
-                  <Label>Student Data File</Label>
                   <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-xl cursor-pointer hover:bg-muted/50 transition-colors">
                     <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                    <span className="text-sm text-muted-foreground">Upload .xlsx or .csv file</span>
-                    <input type="file" accept=".xlsx,.csv,.xls" className="hidden" onChange={(e) => { if (e.target.files?.[0]) setExcelFile(e.target.files[0]); }} />
+                    <span className="text-sm text-muted-foreground">Upload .xlsx or .csv files (multiple allowed)</span>
+                    <input type="file" accept=".xlsx,.csv,.xls" multiple className="hidden" onChange={(e) => {
+                      if (e.target.files) setPerformanceFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                    }} />
                   </label>
-                  {excelFile && <p className="text-sm text-muted-foreground">{excelFile.name}</p>}
+                  {performanceFiles.length > 0 && (
+                    <div className="space-y-2 mt-4">
+                      {performanceFiles.map((file, i) => (
+                        <div key={i} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg border">
+                          <div className="flex items-center gap-2 truncate">
+                            <BarChart3 className="h-4 w-4 text-primary" />
+                            <span className="text-sm truncate">{file.name}</span>
+                          </div>
+                          <button onClick={() => setPerformanceFiles(prev => prev.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-destructive">
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-3">
@@ -330,24 +378,53 @@ export default function AnalysisWizard() {
               </div>
 
               {report.performanceAnalysis && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Subject Performance</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={report.performanceAnalysis.subject_performance}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                          <XAxis dataKey="subject" tick={{ fontSize: 12 }} />
-                          <YAxis domain={[0, 100]} />
-                          <Tooltip />
-                          <Bar dataKey="score" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Subject Performance</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-48">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={report.performanceAnalysis.subject_performance}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                            <XAxis dataKey="subject" tick={{ fontSize: 10 }} />
+                            <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+                            <Tooltip />
+                            <Bar dataKey="score" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Department Metrics</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-48">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={report.performanceAnalysis.department_performance}
+                              innerRadius={40}
+                              outerRadius={60}
+                              paddingAngle={5}
+                              dataKey="average"
+                              nameKey="department"
+                            >
+                              {report.performanceAnalysis.department_performance.map((_, index) => (
+                                <Cell key={`cell-${index}`} fill={`hsl(var(--primary), ${1 - (index * 0.2)})`} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               )}
 
               {report.performanceAnalysis && (

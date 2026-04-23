@@ -21,6 +21,8 @@ export interface InstitutionReport {
   };
   documentAnalysis?: {
     authenticity_score: number;
+    date_of_issue?: string;
+    signature_available?: boolean;
     detected_issues: string[];
     missing_documents: string[];
     accreditation_validation: string;
@@ -29,6 +31,9 @@ export interface InstitutionReport {
     top_performing_courses: string[];
     low_performing_courses: string[];
     subject_performance: { subject: string; score: number }[];
+    department_performance: { department: string; average: number }[];
+    key_metrics?: { label: string; value: any; unit?: string }[];
+    extra_insights?: string[];
     improvement_recommendations: string[];
     class_wise_analysis: { class: string; average: number }[];
   };
@@ -48,15 +53,49 @@ const API_URL = import.meta.env.VITE_API_URL;
 function mapReport(raw: any): InstitutionReport {
   return {
     ...raw,
-    // Normalize date keys
+    // Normalize top-level scores and dates
     dateAnalyzed: raw.dateAnalyzed || raw.date_analyzed,
-    // Normalize nested campus scores
+    overallScore: raw.overallScore ?? raw.overall_score,
+    campusScore: raw.campusScore ?? raw.campus_score,
+    complianceScore: raw.complianceScore ?? raw.compliance_score,
+    academicScore: raw.academicScore ?? raw.academic_score,
+    
+    // Normalize nested campus analysis
     campusAnalysis: raw.campusAnalysis
       ? {
         ...raw.campusAnalysis,
         infrastructure_quality_score:
           raw.campusAnalysis.infrastructure_quality_score ??
           raw.campusAnalysis.infrastructure_score,
+        maintenance_issues: raw.campusAnalysis.maintenance_issues || [],
+        safety_hazards: raw.campusAnalysis.safety_hazards || [],
+        compliance_flags: raw.campusAnalysis.compliance_flags || [],
+      }
+      : undefined,
+    
+    // Normalize nested document analysis
+    documentAnalysis: raw.documentAnalysis
+      ? {
+        ...raw.documentAnalysis,
+        authenticity_score: raw.documentAnalysis.authenticity_score,
+        date_of_issue: raw.documentAnalysis.date_of_issue,
+        signature_available: raw.documentAnalysis.signature_available,
+        detected_issues: raw.documentAnalysis.detected_issues || [],
+        missing_documents: raw.documentAnalysis.missing_documents || [],
+        accreditation_validation: raw.documentAnalysis.accreditation_validation,
+      }
+      : undefined,
+      
+    // Normalize nested performance analysis
+    performanceAnalysis: raw.performanceAnalysis
+      ? {
+        ...raw.performanceAnalysis,
+        top_performing_courses: raw.performanceAnalysis.top_performing_courses || raw.performanceAnalysis.top_courses || [],
+        low_performing_courses: raw.performanceAnalysis.low_performing_courses || raw.performanceAnalysis.low_courses || [],
+        subject_performance: raw.performanceAnalysis.subject_performance || [],
+        department_performance: raw.performanceAnalysis.department_performance || [],
+        improvement_recommendations: raw.performanceAnalysis.improvement_recommendations || raw.performanceAnalysis.recommendations || [],
+        class_wise_analysis: raw.performanceAnalysis.class_wise_analysis || [],
       }
       : undefined,
   };

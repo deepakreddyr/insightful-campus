@@ -12,6 +12,7 @@ import Institutions from "@/pages/Institutions";
 import AnalysisWizard from "@/pages/AnalysisWizard";
 import Reports from "@/pages/Reports";
 import ReportDetail from "@/pages/ReportDetail";
+import ComparisonView from "@/pages/ComparisonView";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
 
@@ -34,6 +35,7 @@ const App = () => (
               <Route path="/analysis/new" element={<AnalysisWizard />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/reports/:id" element={<ReportDetail />} />
+              <Route path="/compare" element={<ComparisonView />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />

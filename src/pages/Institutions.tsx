@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Building2, MapPin, Calendar, Eye } from "lucide-react";
 import { motion } from "framer-motion";
+import { formatDate } from "@/lib/utils";
 
 export default function Institutions() {
   const { institutions } = useInstitutionStore();
@@ -28,7 +29,7 @@ export default function Institutions() {
               <CardContent className="flex-1 flex flex-col justify-between gap-4">
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" />{inst.location}</div>
-                  <div className="flex items-center gap-2"><Calendar className="h-3.5 w-3.5" />{inst.dateAnalyzed}</div>
+                  <div className="flex items-center gap-2"><Calendar className="h-3.5 w-3.5" />{formatDate(inst.dateAnalyzed)}</div>
                   {inst.overallScore && (
                     <div className="flex items-center gap-2"><Building2 className="h-3.5 w-3.5" />Score: {inst.overallScore}/100</div>
                   )}

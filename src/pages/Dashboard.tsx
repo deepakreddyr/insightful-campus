@@ -4,8 +4,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Building2, FileText, BarChart3, Eye } from "lucide-react";
+import { Plus, Building2, FileText, BarChart3, Eye, GitCompare } from "lucide-react";
 import { motion } from "framer-motion";
+import { formatDate } from "@/lib/utils";
 
 import { useEffect } from "react";
 
@@ -28,10 +29,16 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Welcome back, {user?.name}</p>
         </div>
-        <Button onClick={() => navigate("/analysis/new")} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Analyze New Institution
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => navigate("/compare")} className="gap-2">
+            <GitCompare className="h-4 w-4" />
+            Compare Reports
+          </Button>
+          <Button onClick={() => navigate("/analysis/new")} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Analyze New Institution
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -83,7 +90,7 @@ export default function Dashboard() {
                   >
                     <td className="py-3 px-4 font-medium">{inst.name}</td>
                     <td className="py-3 px-4 text-muted-foreground">{inst.location}</td>
-                    <td className="py-3 px-4 text-muted-foreground">{inst.dateAnalyzed}</td>
+                    <td className="py-3 px-4 text-muted-foreground">{formatDate(inst.dateAnalyzed)}</td>
                     <td className="py-3 px-4">
                       <Badge variant="outline" className={inst.status === "completed" ? "status-badge-completed" : "status-badge-processing"}>
                         {inst.status === "completed" ? "Completed" : "Processing"}

@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Eye } from "lucide-react";
+import { formatDate } from "@/lib/utils";
 
 export default function Reports() {
   const { institutions } = useInstitutionStore();
@@ -26,7 +27,7 @@ export default function Reports() {
                   </div>
                   <div>
                     <p className="font-medium">{inst.name}</p>
-                    <p className="text-sm text-muted-foreground">{inst.location} · {inst.dateAnalyzed}</p>
+                    <p className="text-sm text-muted-foreground">{inst.location} · {formatDate(inst.dateAnalyzed)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

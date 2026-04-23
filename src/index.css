@@ -131,3 +131,42 @@
     @apply inline-flex items-center justify-center rounded-full font-semibold;
   }
 }
+
+@media print {
+  nav, 
+  aside,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  .p-6, .lg:p-8 {
+    padding: 0 !important;
+  }
+
+  .max-w-5xl {
+    max-width: 100% !important;
+  }
+
+  .Card {
+    box-shadow: none !important;
+    border: 1px solid #eee !important;
+    break-inside: avoid;
+  }
+
+  .gradient-hero {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color: white !important;
+  }
+
+  .status-badge-completed,
+  .status-badge-processing {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
